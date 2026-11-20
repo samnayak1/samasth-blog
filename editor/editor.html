@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor · Samasth's stuff</title>
+
+  <!-- Makes relative paths (posts.json, images/...) point at the site/ folder -->
+  <base href="../site/">
+
+  <!-- Quill: the rich text editor -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 15px;
+      color: #222;
+      background: #f6f5f2;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Left: list of posts */
+    aside {
+      width: 260px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid #e3e0da;
+      padding: 16px;
+    }
+    aside h1 { font-size: 17px; margin: 0 0 12px; }
+    #post-list { list-style: none; padding: 0; margin: 12px 0 0; }
+    #post-list li {
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 2px;
+    }
+    #post-list li:hover { background: #f0eee9; }
+    #post-list li.active { background: #e2efe7; }
+    #post-list small { display: block; color: #777; }
+    .draft-tag { color: #b06000; font-size: 12px; }
+
+    /* Right: the post form */
+    main { flex: 1; padding: 24px 32px; max-width: 900px; }
+    .toolbar-row { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+    #status { color: #777; margin-left: 8px; }
+    label { display: block; font-weight: 600; margin: 14px 0 4px; }
+    input[type="text"], input[type="date"], textarea {
+      width: 100%;
+      padding: 8px 10px;
+      font: inherit;
+      border: 1px solid #d6d2ca;
+      border-radius: 6px;
+      background: #fff;
+    }
+    textarea { resize: vertical; }
+    .row { display: flex; gap: 16px; }
+    .row > div { flex: 1; }
+    .checkbox { display: flex; gap: 6px; align-items: center; font-weight: normal; }
+    .hint { color: #777; font-weight: normal; font-size: 13px; }
+
+    button {
+      font: inherit;
+      padding: 7px 14px;
+      border: 1px solid #ccc8c0;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: #f0eee9; }
+    button.primary { background: #2f6f4f; border-color: #2f6f4f; color: #fff; }
+    button.primary:hover { background: #255a40; }
+    button.danger { color: #b00020; }
+    aside button { width: 100%; }
+
+    /* Rich text area */
+    #content { background: #fff; min-height: 400px; font-size: 17px; font-family: Georgia, serif; }
+    .ql-toolbar.ql-snow { background: #fff; border-radius: 6px 6px 0 0; }
+    .ql-container.ql-snow { border-radius: 0 0 6px 6px; }
+    #content img { max-width: 100%; }
+
+    #empty { color: #777; margin-top: 60px; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <aside>
+    <h1>Samasth's stuff</h1>
+    <button id="new-btn" class="primary">+ New post</button>
+    <ul id="post-list"></ul>
+  </aside>
+
+  <main>
+    <div class="toolbar-row">
+      <button id="save-btn" class="primary">Save posts.json</button>
+      <a id="view-link" href="#" target="_blank">View saved post ↗</a>
+      <span id="status"></span>
+    </div>
+
+    <p id="empty">Pick a post on the left, or create a new one.</p>
+
+    <form id="post-form" hidden onsubmit="return false">
+      <label for="title">Title</label>
+      <input type="text" id="title">
+
+      <div class="row">
+        <div>
+          <label for="slug">Slug <span class="hint">(used in the link: post.html?slug=...)</span></label>
+          <input type="text" id="slug">
+        </div>
+        <div>
+          <label for="date">Date</label>
+          <input type="date" id="date">
+        </div>
+      </div>
+
+      <label for="summary">Summary <span class="hint">(shown on the home page)</span></label>
+      <textarea id="summary" rows="2"></textarea>
+
+      <label class="checkbox">
+        <input type="checkbox" id="draft"> Draft (hidden on the site)
+      </label>
+
+      <label>Content</label>
+      <div id="content"></div>
+
+      <p><button id="delete-btn" class="danger">Delete this post</button></p>
+    </form>
+  </main>
+
+  <script>
+    // ===== State =====
+    let posts = [];          // every post from posts.json
+    let current = null;      // the post being edited right now
+    let fileHandle = null;   // where to save (remembered after the first save)
+    let unsaved = false;
+
+    // Shortcut for document.getElementById
+    const $ = (id) => document.getElementById(id);
+
+    // ===== Rich text editor setup =====
+    const quill = new Quill("#content", {
+      theme: "snow",
+      placeholder: "Write your post…",
+      modules: {
+        toolbar: {
+          container: [
+            [{ header: [2, 3, false] }],
+            ["bold", "italic", "underline", "strike"],
+            ["link", "blockquote", "code-block", "image"],
+            [{ list: "ordered" }, { list: "bullet" }],
+            [{ align: [] }],
+            ["clean"],
+          ],
+          handlers: { image: pickImage },
+        },
+        // Handles images you paste or drag into the editor
+        uploader: {
+          handler: (range, files) => addImages(files, range.index),
+        },
+      },
+    });
+
+    // ===== Images =====
+    // Images are copied into site/images/ and the post just stores the path
+    // (e.g. images/cat.jpg), so posts.json stays small.
+    let imagesFolder = null; // the site/images folder (you pick it once per session)
+
+    // Image button: choose image files from your computer
+    function pickImage() {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.multiple = true;
+      input.onchange = () => {
+        const index = quill.getSelection(true).index;
+        addImages([...input.files], index);
+      };
+      input.click();
+    }
+
+    async function addImages(files, index) {
+      for (const file of files) {
+        if (!file.type.startsWith("image/")) continue;
+        const path = await saveImage(file);
+        if (!path) return;
+        quill.insertEmbed(index, "image", path, "user");
+        index += 1;
+      }
+      quill.setSelection(index);
+    }
+
+    // Copies the file into site/images/ and returns its path, like "images/cat.jpg"
+    async function saveImage(file) {
+      if (!window.showDirectoryPicker) {
+        // Browsers without folder access: copy the file yourself and type its path
+        return prompt("Copy " + file.name + " into site/images/ yourself, then confirm its path:", "images/" + file.name);
+      }
+
+      try {
+        if (!imagesFolder) {
+          alert("Choose the samasth-blog/site/images folder. You only need to do this once per session.");
+          imagesFolder = await window.showDirectoryPicker({ id: "blog-images", mode: "readwrite" });
+        }
+
+        // Make a safe file name, and don't overwrite an image that's already there
+        const dot = file.name.lastIndexOf(".");
+        const base = slugify(dot > 0 ? file.name.slice(0, dot) : file.name) || "image";
+        const ext = dot > 0 ? file.name.slice(dot).toLowerCase() : "." + file.type.split("/")[1];
+        let name = base + ext;
+        if (await fileExists(imagesFolder, name)) {
+          name = base + "-" + Date.now() + ext;
+        }
+
+        const handle = await imagesFolder.getFileHandle(name, { create: true });
+        const writable = await handle.createWritable();
+        await writable.write(file);
+        await writable.close();
+        return "images/" + name;
+      } catch (error) {
+        if (error.name !== "AbortError") alert("Couldn't save the image: " + error.message);
+        return null;
+      }
+    }
+
+    async function fileExists(folder, name) {
+      try {
+        await folder.getFileHandle(name);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // Gets clean HTML out of the editor
+    function getContentHTML() {
+      return quill.getSemanticHTML().replace(/&nbsp;/g, " ");
+    }
+
+    // ===== Helpers =====
+    function slugify(text) {
+      return text.toLowerCase().trim()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+    }
+
+    function today() {
+      return new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+    }
+
+    function setStatus(text) {
+      $("status").textContent = text;
+    }
+
+    function markUnsaved() {
+      unsaved = true;
+      setStatus("Unsaved changes");
+    }
+
+    // ===== Post list (left side) =====
+    function renderList() {
+      const list = $("post-list");
+      list.innerHTML = "";
+      const sorted = [...posts].sort((a, b) => b.date.localeCompare(a.date));
+
+      for (const post of sorted) {
+        const item = document.createElement("li");
+        if (post === current) item.className = "active";
+
+        const title = document.createElement("div");
+        title.textContent = post.title || "(untitled)";
+
+        const info = document.createElement("small");
+        info.textContent = post.date;
+        if (post.draft) {
+          const tag = document.createElement("span");
+          tag.className = "draft-tag";
+          tag.textContent = " · draft";
+          info.appendChild(tag);
+        }
+
+        item.append(title, info);
+        item.onclick = () => selectPost(post);
+        list.appendChild(item);
+      }
+    }
+
+    // ===== Editing a post (right side) =====
+    function selectPost(post) {
+      current = post;
+      $("empty").hidden = true;
+      $("post-form").hidden = false;
+
+      $("title").value = post.title;
+      $("slug").value = post.slug;
+      $("date").value = post.date;
+      $("summary").value = post.summary;
+      $("draft").checked = !!post.draft;
+      quill.setContents(quill.clipboard.convert({ html: post.content || "" }), "silent");
+
+      $("view-link").href = "post.html?slug=" + encodeURIComponent(post.slug);
+      renderList();
+    }
+
+    // Copy what's typed in the form into the current post
+    $("title").addEventListener("input", () => {
+      // Keep the slug matching the title until you edit the slug yourself
+      if ($("slug").value === slugify(current.title)) {
+        $("slug").value = slugify($("title").value);
+        current.slug = $("slug").value;
+      }
+      current.title = $("title").value;
+      markUnsaved();
+      renderList();
+    });
+    $("slug").addEventListener("input", () => { current.slug = slugify($("slug").value); markUnsaved(); });
+    $("slug").addEventListener("change", () => { $("slug").value = current.slug; });
+    $("date").addEventListener("input", () => { current.date = $("date").value; markUnsaved(); renderList(); });
+    $("summary").addEventListener("input", () => { current.summary = $("summary").value; markUnsaved(); });
+    $("draft").addEventListener("change", () => { current.draft = $("draft").checked; markUnsaved(); renderList(); });
+    quill.on("text-change", (delta, oldDelta, source) => {
+      if (source !== "user" || !current) return;
+      current.content = getContentHTML();
+      markUnsaved();
+    });
+
+    // ===== Buttons =====
+    $("new-btn").onclick = () => {
+      const post = { slug: "", title: "", date: today(), summary: "", draft: true, content: "" };
+      posts.push(post);
+      selectPost(post);
+      markUnsaved();
+      $("title").focus();
+    };
+
+    $("delete-btn").onclick = () => {
+      if (!confirm('Delete "' + (current.title || "untitled") + '"? (Nothing is lost until you click Save.)')) return;
+      posts = posts.filter((p) => p !== current);
+      current = null;
+      $("post-form").hidden = true;
+      $("empty").hidden = false;
+      markUnsaved();
+      renderList();
+    };
+
+    $("save-btn").onclick = savePosts;
+
+    // Returns a problem message, or null if everything looks OK
+    function checkPosts() {
+      const seen = new Set();
+      for (const post of posts) {
+        if (!post.title) return "Every post needs a title.";
+        if (!post.slug) return '"' + post.title + '" needs a slug.';
+        if (!post.date) return '"' + post.title + '" needs a date.';
+        if (seen.has(post.slug)) return 'Two posts use the slug "' + post.slug + '". Slugs must be different.';
+        seen.add(post.slug);
+      }
+      return null;
+    }
+
+    async function savePosts() {
+      const problem = checkPosts();
+      if (problem) { alert(problem); return; }
+
+      const text = JSON.stringify(posts, null, 2) + "\n";
+
+      if (window.showSaveFilePicker) {
+        // Chrome / Edge: write straight to site/posts.json
+        try {
+          if (!fileHandle) {
+            fileHandle = await window.showSaveFilePicker({
+              suggestedName: "posts.json",
+              types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+            });
+          }
+          const writable = await fileHandle.createWritable();
+          await writable.write(text);
+          await writable.close();
+        } catch (error) {
+          if (error.name === "AbortError") return; // you closed the dialog
+          alert("Couldn't save: " + error.message);
+          return;
+        }
+      } else {
+        // Other browsers: download the file, then move it into site/
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+        link.download = "posts.json";
+        link.click();
+        URL.revokeObjectURL(link.href);
+      }
+
+      unsaved = false;
+      setStatus("Saved ✓  Run ./deploy.sh to publish.");
+      if (current) $("view-link").href = "post.html?slug=" + encodeURIComponent(current.slug);
+    }
+
+    // Warn before closing the tab with unsaved work
+    window.addEventListener("beforeunload", (event) => {
+      if (unsaved) event.preventDefault();
+    });
+
+    // ===== Load posts.json when the page opens =====
+    async function start() {
+      try {
+        const response = await fetch("posts.json", { cache: "no-store" });
+        if (!response.ok) throw new Error(response.status);
+        posts = await response.json();
+        renderList();
+        setStatus(posts.length + " posts loaded");
+      } catch (error) {
+        $("empty").textContent =
+          "Couldn't load site/posts.json. Start a local server from the samasth-blog folder " +
+          "(python3 -m http.server 8000) and open http://localhost:8000/editor/editor.html";
+      }
+    }
+
+    start();
+  </script>
+</body>
+</html>

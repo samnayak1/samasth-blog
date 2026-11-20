@@ -1,0 +1,242 @@
+/* ===== Colors =====
+   Change these to restyle the whole site. */
+:root {
+  --bg: #fffbe0;
+  --text: #000000;
+  --muted: #3d3500;
+  --accent: #000000;
+  --border: #000000;
+  --code-bg: #000000;
+  --code-text: #ffd60a;
+  --card-bg: #ffffff;
+}
+
+/* Dark mode, used automatically when the visitor's device is in dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --text: #ffd60a;
+    --muted: #c9a900;
+    --accent: #ffd60a;
+    --border: #ffd60a;
+    --code-bg: #ffd60a;
+    --code-text: #000000;
+    --card-bg: #1a1a1a;
+  }
+}
+
+/* ===== Basics ===== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Times New Roman", Times, serif;
+  font-size: 19px; /* changes with screen size, see the bottom of this file */
+  line-height: 1.7;
+}
+
+a {
+  color: var(--accent);
+}
+
+/* Keep everything in a readable column */
+.site-header,
+main,
+.site-footer {
+  max-width: 36em; /* em = grows with the font size */
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ===== Header & footer ===== */
+.site-header {
+  padding-top: 48px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+}
+
+.site-title {
+  font-size: 1.4em;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.tagline {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.site-footer {
+  margin-top: 64px;
+  padding-top: 24px;
+  padding-bottom: 48px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.8em;
+}
+
+/* ===== Home page post list ===== */
+.post-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.post-card {
+  margin-bottom: 24px;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.post-card h2 {
+  margin: 0;
+  font-size: 1.25em;
+  line-height: 1.3;
+}
+
+.post-card h2 a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+/* Makes the whole tile clickable: the title link stretches
+   an invisible layer over the entire card */
+.post-card {
+  position: relative;
+  background: var(--card-bg);
+}
+
+.post-card h2 a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.post-card:hover {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.post-card:hover h2 a,
+.post-card:hover .post-date {
+  color: var(--bg);
+}
+
+.post-card p {
+  margin: 6px 0 0;
+}
+
+.post-date {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8em;
+}
+
+/* ===== Single post page ===== */
+.post h1 {
+  margin: 0 0 4px;
+  font-size: 1.9em;
+  line-height: 1.2;
+}
+
+.post-content {
+  margin-top: 32px;
+}
+
+.post-content h2,
+.post-content h3 {
+  line-height: 1.3;
+  margin-top: 40px;
+}
+
+.post-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.post-content blockquote {
+  margin: 24px 0;
+  padding-left: 20px;
+  border-left: 4px solid var(--accent);
+  color: var(--muted);
+  font-style: italic;
+}
+
+.post-content code,
+.post-content pre {
+  font-family: ui-monospace, Consolas, "Courier New", monospace;
+  font-size: 0.8em;
+  background: var(--code-bg);
+  color: var(--code-text);
+  border-radius: 4px;
+}
+
+.post-content code {
+  padding: 2px 5px;
+}
+
+.post-content pre {
+  padding: 16px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+/* Text alignment chosen in the editor */
+.ql-align-center { text-align: center; }
+.ql-align-right { text-align: right; }
+.ql-align-justify { text-align: justify; }
+
+.back-link {
+  margin-top: 48px;
+  font-size: 0.85em;
+}
+
+.loading,
+.error {
+  color: var(--muted);
+}
+
+/* ===== Font size by screen size =====
+   Everything else is sized in em, so it all scales with these. */
+@media (max-width: 600px) {
+  body { font-size: 16px; } /* phones */
+}
+@media (min-width: 1000px) {
+  body { font-size: 21px; } /* laptops */
+}
+@media (min-width: 1500px) {
+  body { font-size: 23px; } /* big monitors */
+}
+
+@media (max-width: 600px) {
+  .post-card { padding: 16px; }
+}
+
+/* ===== Tabs (My blogs / About me) ===== */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.tabs a {
+  padding: 4px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.tabs a:hover,
+.tabs a.active {
+  background: var(--text);
+  color: var(--bg);
+}

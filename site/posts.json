@@ -1,0 +1,10 @@
+[
+  {
+    "slug": "hello-world",
+    "title": "Hello, world!",
+    "date": "2026-11-20",
+    "summary": "My first post, and a quick tour of what the editor can do.",
+    "draft": false,
+    "content": "<p>Welcome to my blog! This post was written in the editor, and it shows off the formatting you can use.</p><h2>Text styles</h2><p>You can write in <strong>bold</strong>, <em>italics</em>, <u>underline</u>, or <s>strikethrough</s>, and add <a href=\"https://example.com\">links</a>.</p><h2>Lists</h2><ul><li>Bullet lists</li><li>like this one</li></ul><ol><li>Numbered lists</li><li>work too</li></ol><h2>Quotes and code</h2><blockquote>A quote stands out from the rest of the post.</blockquote><pre>console.log(\"Code blocks keep their spacing.\");</pre><p>Edit or delete this post in the editor whenever you like.</p>"
+  }
+]
