@@ -13,16 +13,11 @@ Preview at http://localhost:8000/site/
 ## Publish
 
 ```bash
-./deploy.sh
+git add .
+git commit -m "New post"
+git push
 ```
 
-Set `BUCKET` in `deploy.sh` first.
+GitHub Pages publishes the `site/` folder automatically about a minute after you push.
 
-## S3 setup (once)
-
-```bash
-aws s3 mb s3://BUCKET
-aws s3api put-public-access-block --bucket BUCKET --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=false,RestrictPublicBuckets=false
-aws s3api put-bucket-policy --bucket BUCKET --policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::BUCKET/*"}]}'
-aws s3 website s3://BUCKET --index-document index.html
-```
+Live at https://samnayak1.github.io/samasth-blog/
